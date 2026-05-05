@@ -1,0 +1,56 @@
+# Byte-compiled / cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Virtual environments
+.env
+.env.*
+!.env.example
+venv/
+.venv/
+env/
+
+# Packaging
+build/
+dist/
+*.egg-info/
+*.egg
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors / IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Jupyter
+.ipynb_checkpoints/
+
+# ML artifacts (trained models — regenerate with train.py)
+*.joblib
+*.pkl
+*.pickle
+*.h5
+*.pt
+*.onnx
+
+# Large / local datasets (uncomment if you do not want CSVs in git)
+# data/*.csv
+
+# Project-specific caches
+hf_models/.cache/
+
+hf_models/
+data/
+models/

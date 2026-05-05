@@ -1,0 +1,18 @@
+# NumPy 2.x can break PyTorch/sklearn wheels built for NumPy 1.x; pin until stack is rebuilt.
+numpy>=1.26,<2
+pandas
+scikit-learn
+joblib
+imbalanced-learn
+xgboost
+lightgbm
+shap
+lime
+kafka-python
+fastapi
+uvicorn
+pydantic
+python-multipart
+requests
+matplotlib
+torch
