@@ -10,7 +10,7 @@ class Config:
     USE_SCORING_BUNDLE: bool = True
     # Standalone supervised artifact under MODELS_DIR if no bundle (or bundle disabled).
     # Override path with env FRAUD_MODEL_PATH (absolute, or relative to MODELS_DIR).
-    FRAUD_MODEL_FILE: str = "fraud_model_credit_card.pkl"
+    FRAUD_MODEL_FILE: str = "credit_card.pkl"
     # Default CSV for `train.py` / `evaluate.py` / `explain.py` / `ablation.py`
     TRAIN_CSV: Path = DATA_DIR / "transactions_100.csv"
 
@@ -60,9 +60,12 @@ class Config:
     ANOMALY_BLEND_AE: float = 0.5
 
     # Real-time threshold
-    ALERT_THRESHOLD: float = 0.85
-    MEDIUM_RISK_THRESHOLD: float = 0.30
-    HIGH_RISK_THRESHOLD: float = 0.60
+    # ALERT_THRESHOLD: float = 0.85
+    # MEDIUM_RISK_THRESHOLD: float = 0.30
+    # HIGH_RISK_THRESHOLD: float = 0.60
+    ALERT_THRESHOLD: float = 0.016
+    MEDIUM_RISK_THRESHOLD: float = 0.04
+    HIGH_RISK_THRESHOLD: float = 0.11
 
     # Hybrid scoring weights (must sum close to 1)
     HYBRID_WEIGHT_ML: float = 0.80

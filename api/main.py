@@ -65,7 +65,27 @@ def _ensure_v_cols(row: dict[str, Any]) -> None:
         row[key] = row.get(key, 0.0)
 
 
+# def _score_last_from_history() -> tuple[pd.DataFrame, float, float, float]:
+#     df = transaction_history.as_dataframe()
+#     df = engineer_features(
+#         df,
+#         CFG.TIME_COL,
+#         CFG.USER_COL,
+#         CFG.AMOUNT_COL,
+#         use_velocity=True,
+#     )
+#     X_last = df.tail(1)
+#     t0 = time.perf_counter()
+#     ml_p = float(inference.model.predict_proba(X_last)[0, 1])
+#     an = inference.anomaly_score_row(X_last)
+#     hyb = float(
+#         CFG.HYBRID_WEIGHT_ML * ml_p + CFG.HYBRID_WEIGHT_ANOMALY * an,
+#     )
+#     _ = time.perf_counter() - t0
+#     return X_last, ml_p, an, hyb
+
 def _score_last_from_history() -> tuple[pd.DataFrame, float, float, float]:
+    # Get transaction history and engineer features
     df = transaction_history.as_dataframe()
     df = engineer_features(
         df,
@@ -74,14 +94,70 @@ def _score_last_from_history() -> tuple[pd.DataFrame, float, float, float]:
         CFG.AMOUNT_COL,
         use_velocity=True,
     )
-    X_last = df.tail(1)
+
+    # Take the most recent transaction
+    X_last = df.tail(1).copy()
+
+    # ------------------------------------------------------------------
+    # ALIGN FEATURES TO MATCH TRAINING SCHEMA
+    # The saved model was trained with feature names:
+    #   - Time
+    #   - Amount
+    #
+    # Your API generates many engineered features such as:
+    #   - amount
+    #   - category
+    #   - channel
+    #   - amount_zscore_24h
+    #
+    # We rename/add the required columns and then reindex so the final
+    # DataFrame matches exactly what the model expects.
+    # ------------------------------------------------------------------
+
+    # Rename lowercase amount -> Amount if necessary
+    if "amount" in X_last.columns and "Amount" not in X_last.columns:
+        X_last = X_last.rename(columns={"amount": "Amount"})
+
+    # Add Time column if missing
+    if "Time" not in X_last.columns:
+        # Use 0 as a placeholder if your model was trained on the Kaggle
+        # credit card dataset where Time is seconds since first transaction.
+        X_last["Time"] = 0.0
+
+    # Get the exact feature order expected by the model
+    expected_cols = list(inference.model.feature_names_in_)
+
+    # Keep only expected columns and create any missing columns with 0
+    X_last = X_last.reindex(columns=expected_cols, fill_value=0.0)
+
+    # Ensure all values are numeric
+    X_last = X_last.apply(pd.to_numeric, errors="coerce").fillna(0.0)
+
+    # Optional debug logging
+    logger.info("Model expects columns: %s", expected_cols)
+    logger.info("Prediction columns: %s", list(X_last.columns))
+
+    # ------------------------------------------------------------------
+    # SCORE
+    # ------------------------------------------------------------------
     t0 = time.perf_counter()
+
     ml_p = float(inference.model.predict_proba(X_last)[0, 1])
-    an = inference.anomaly_score_row(X_last)
+
+    # Use the aligned features for anomaly scoring as well
+    try:
+        an = float(inference.anomaly_score_row(X_last))
+    except Exception:
+        # Fallback if anomaly model expects a different schema
+        an = 0.0
+
     hyb = float(
-        CFG.HYBRID_WEIGHT_ML * ml_p + CFG.HYBRID_WEIGHT_ANOMALY * an,
+        CFG.HYBRID_WEIGHT_ML * ml_p
+        + CFG.HYBRID_WEIGHT_ANOMALY * an
     )
+
     _ = time.perf_counter() - t0
+
     return X_last, ml_p, an, hyb
 
 
