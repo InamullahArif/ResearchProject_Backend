@@ -19,6 +19,7 @@ from starlette.middleware.cors import CORSMiddleware
 import runtime_env  # noqa: F401
 
 from api.deps import verify_api_key
+from api.research import router as research_router
 from config import CFG
 from dataset_loaders import load_dataset
 from pipeline.feature_engineering import engineer_features
@@ -403,6 +404,8 @@ def create_app() -> FastAPI:
             "processed_total": s.processed_total,
             "avg_latency_ms": s.avg_latency_ms,
         }
+
+    application.include_router(research_router)
 
     return application
 
