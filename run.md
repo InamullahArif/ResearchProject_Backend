@@ -1,11 +1,11 @@
 # Command cheat sheet
 
-Run from the project folder: `cd /Users/mac/Desktop/Inam-Project-UK`
+Run from the project folder (`fraud_detection_system-main`).
 
 ## Setup (once)
 
 ```bash
-cd /Users/mac/Desktop/Inam-Project-UK
+cd fraud_detection_system-main
 python -m venv env
 source env/bin/activate
 pip install -r requirements.txt

@@ -1,5 +1,76 @@
 # Real-Time Financial Fraud Detection System
 
+This repository contains the code for the research paper
+
+> **A Machine Learning-Based Real-Time Financial Fraud Detection Framework for Digital Transaction Monitoring**
+> Inamullah Arif, Ulster University (2026). *Manuscript under review.*
+
+It has two parts:
+
+1. **Research experiments** (`experiments/`, `results/`): the reproducible evaluation reported in the paper.
+2. **Demo application** (everything else): a FastAPI service and React frontend ([ResearchProject_Frontend](https://github.com/InamullahArif/ResearchProject_Frontend)) showing the framework working on uploaded and single transactions.
+
+---
+
+## Research summary
+
+**Question.** Do behavioural features, anomaly detection and a hybrid risk score improve real-time fraud detection, and how should these signals be combined?
+
+**Data.** Two public datasets:
+- the European credit card fraud dataset (283,726 transactions, 0.17% fraud);
+- the PaySim mobile-money dataset (2,770,409 transfer and cash-out transactions, 0.30% fraud).
+
+PaySim's balance columns are excluded because its documentation says they leak the fraud label.
+
+**Protocol.**
+- Stratified 70/15/15 splits repeated over five seeds, plus a time-ordered split (train on the past, test on the future).
+- Thresholds, hybrid weights and hyperparameters are chosen on validation data only.
+- Models compared: logistic regression, decision tree, Random Forest, gradient boosting, Isolation Forest, an autoencoder, and the proposed hybrid score.
+
+**Main findings.**
+
+| Finding | Evidence |
+|---|---|
+| Gradient boosting gave the best PR-AUC under random splits, at about 3 ms per transaction | Credit card 0.809 ± 0.044; PaySim 0.645 ± 0.007 |
+| Behavioural features for receiving accounts substantially improve detection when used as model inputs | PaySim PR-AUC 0.585 → 0.676 (random splits), 0.234 → 0.441 (time-ordered) |
+| Anomaly scores did not improve detection in any form tested | Hybrid weights chose the supervised score alone in every random split. As model inputs, anomaly scores lowered PaySim PR-AUC in 5 of 5 splits |
+| Graded accept / monitor / alert decisions catch fraud a single threshold misses | 61% of credit card fraud missed at the alert threshold fell in the monitor band |
+| Including PaySim's balance columns gives misleading results | PR-AUC 0.998 with them, a result caused by label leakage |
+
+Full tables are in `results/summary.json`, the frontend's **Research Results** page, and the paper.
+
+## Reproducing the paper
+
+Full instructions are in [`experiments/README.md`](experiments/README.md). In short:
+
+```bash
+pip install scikit-learn pandas numpy scipy matplotlib
+# Put creditcard.csv and the PaySim CSV in data/ (Kaggle links in experiments/README.md)
+python experiments/run_experiments.py data/creditcard.csv results/creditcard
+python experiments/paysim_experiments.py data/PS_20174392719_1491204439457_log.csv results/paysim 5
+python experiments/paysim_nobalance.py data/PS_20174392719_1491204439457_log.csv results/paysim
+python experiments/extended_experiments.py temporal data/creditcard.csv data/PS_20174392719_1491204439457_log.csv results/extended
+python experiments/extended_experiments.py anomfeat data/creditcard.csv data/PS_20174392719_1491204439457_log.csv results/extended
+python experiments/extended_experiments.py tuning   data/creditcard.csv data/PS_20174392719_1491204439457_log.csv results/extended
+python experiments/build_summary.py results
+```
+
+The experiment scripts use only scikit-learn, NumPy, pandas and SciPy, so no GPU is needed. They don't depend on the demo application's code.
+
+## How the demo app relates to the paper
+
+The demo application (`train.py`, `api/`, the frontend) and the paper's experiments (`experiments/`) are separate on purpose:
+
+- **`experiments/`** contains the controlled evaluation behind every number in the paper: fixed protocol, repeated splits, validation-only tuning.
+- **The demo app** shows how the framework would run as a service: dataset upload, batch and single-transaction scoring, hybrid risk levels, explanations. Its training script (`train.py`) supports more models (including XGBoost, LightGBM and a tabular Transformer) and is configured by default for a small sample file (`CFG.TRAIN_CSV` in `config.py`). Its outputs are a demonstration, not the paper's results.
+- The app serves the paper's results through `GET /research/summary`, which the frontend displays on the **Research Results** page.
+
+To make the demo model match the paper's best configuration, train it on the full credit card data with gradient boosting and balanced class weights, and use the supervised probability alone as the risk score. The paper found that adding anomaly scores did not help.
+
+---
+
+## Demo application
+
 A machine learning pipeline and **FastAPI** service for scoring financial transactions in near real time. The project trains multiple supervised classifiers, combines them with an **Isolation Forest** anomaly signal for hybrid risk scoring, and exposes HTTP endpoints for integration with monitoring or demo clients.
 
 ---
@@ -42,7 +113,10 @@ Use it to experiment with class imbalance (SMOTE, class weights), compare models
 ## Repository Layout
 
 ```
-├── app.py                   # FastAPI application (optional API key)
+├── app.py                   # ASGI entry point (uvicorn app:app); loads api/main.py
+├── api/                     # FastAPI routes (main.py) and research results endpoints (research.py)
+├── experiments/             # Reproducible experiments for the paper (see experiments/README.md)
+├── results/                 # Result files for every experiment + summary.json
 ├── train.py                 # Model training and bundle export
 ├── evaluate.py              # Offline metrics, fairness slices, cost-threshold search
 ├── ablation.py              # Train with / without velocity features
@@ -89,7 +163,7 @@ It is **not** a text/NLP Transformer: it operates on the same tabular feature ma
 ## Installation
 
 ```bash
-cd Inam-Project-UK
+cd fraud_detection_system-main
 python -m venv env
 source env/bin/activate   # Windows: env\Scripts\activate
 pip install -r requirements.txt
@@ -209,7 +283,8 @@ uvicorn app:app --reload --host 0.0.0.0 --port 8000
 ```
 
 - **Docs:** [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
-- **Score a transaction:** `POST /score` with JSON body matching the `Transaction` schema in `app.py`
+- **Score a transaction:** `POST /score` with JSON body matching the `Transaction` schema in `api/main.py`
+- **Paper results:** `GET /research/summary` (all datasets) or `GET /research/summary/{creditcard|paysim}`
 - **Per-model probabilities:** `POST /score?breakdown=true` (slower; loads all supervised pipelines from the bundle)
 
 ---
@@ -271,12 +346,12 @@ Public datasets commonly used in fraud-detection research include the **Kaggle C
 
 ## Author
 
-**Inamullah Arif** — Masters research project (*Real-Time Financial Fraud Detection System*), Ulster University.
+**Inamullah Arif**, MSc Computer Science, Ulster University (Manchester campus).
 
-For questions about methodology or replication, contact your supervisor or maintainers of this repository.
+For questions about the methodology or about reproducing the results, please open an issue in this repository.
 
 ---
 
 ## License
 
-Specify a license if you redistribute the code (e.g. MIT). Until then, all rights reserved unless stated otherwise by the author and institution.
+Released under the [MIT License](LICENSE). The datasets are not included and remain subject to their own licences (see `experiments/README.md`).
